@@ -15,7 +15,8 @@ const TYPES=[
 ];
 const TYPE=Object.fromEntries(TYPES.map(t=>[t.id,t]));
 const ANCHORS=[[0,610],[180,568],[360,510],[560,480],[710,515],[830,493],[940,566],[1040,610],[1160,674],[1280,735],[1420,775],[1580,787],[1740,790],[1900,802],[2070,790],[2220,786],[2360,752],[2490,690],[2620,614],[2770,535],[2920,488],[3070,468],[3230,493],[3410,548],[3600,590]];
-const FLATS=[{x:555,w:27},{x:818,w:25},{x:1430,w:27},{x:1715,w:29},{x:2140,w:26},{x:2500,w:25},{x:3020,w:28}];
+// Broad natural shelves give each ridge and the crater floor several landing options.
+const FLATS=[110,270,555,818,1100,1390,1605,1765,1970,2140,2330,2560,2810,3020,3335,3500].map(x=>({x,w:55}));
 const ROCKS=[{x:392,r:13,h:16},{x:700,r:10,h:12},{x:987,r:16,h:20},{x:1250,r:14,h:18},{x:1534,r:12,h:13},{x:1842,r:17,h:18},{x:2268,r:12,h:15},{x:2415,r:14,h:18},{x:2725,r:16,h:20},{x:3180,r:13,h:13}];
 function baseGround(x){
  if(x<0||x>WORLD){const edge=x<0?0:WORLD,dir=x<0?-1:1,d=Math.abs(x-edge),y=baseGround(edge),slope=(y-baseGround(edge-dir*.1))/.1;
@@ -74,27 +75,41 @@ class Simulation{
   const checks=[{name:'Power',ok:power>=demand,value:`${Math.round(power)} / ${demand} kW`,fix:'Relocate solar panels to a sunnier ridge, face them left, or repair them.'},{name:'Water',ok:supply>=12,value:`${supply.toFixed(1)} / 12 L/h`,fix:'Move the extractor over richer ice or shorten its pipe.'},{name:'Shelter',ok:shelter>=50,value:`${Math.round(shelter)} / 50`,fix:'Connect the habitat to the hub, or repair its hull.'},{name:'Food',ok:food>=8,value:`${food.toFixed(1)} / 8 units`,fix:'Connect and repair the greenhouse. It also needs sufficient power and water.'},{name:'Signal',ok:signal>=40,value:`${Math.round(signal)} / 40`,fix:'Move comms to high ground and face the dish right.'},{name:'Network',ok:net.connected.size===mods.length&&integrity>=65&&materials<=materialBudget,value:`${net.connected.size}/${mods.length} linked · ${Math.round(integrity)}% hull · ${Math.round(materials)}/${materialBudget} stock`,fix:'Connect isolated rooms, repair damaged hulls, and shorten long corridors to fit your conduit stock.'}];
   return{power,demand,water:supply,shelter,food,signal,integrity,quality,flight,utility,connectivity,materials,materialBudget,score,links:net.links,connected:net.connected,missing,checks,ready:!missing.length&&checks.every(c=>c.ok)};
  }
- recommended(id){const options=[];for(let x=120;x<WORLD-120;x+=12){const a=this.assess(id,x,id==='comms'?1:0);if(a.valid)options.push({x,q:a.quality});}return options.sort((a,b)=>b.q-a.q)[0]?.x||1750;}
+ recommended(id){const options=[];for(let x=120;x<WORLD-120;x+=12){const a=this.assess(id,x,id==='comms'?1:0);if(a.valid&&this.deliveryLanding(id,x,!!this.module(id))!==null)options.push({x,q:a.quality});}return options.sort((a,b)=>b.q-a.q)[0]?.x||1750;}
  safeLanding(x,allowPad=true){
-  if(!Number.isFinite(x))return false;const pad=this.module('pad');if(allowPad&&pad&&Math.abs(x-pad.x)<46)return true;
-  if(ROCKS.some(r=>Math.abs(x-r.x)<r.r+30))return false;if(this.modules.some(m=>m.id!=='pad'&&Math.abs(x-m.x)<TYPE[m.id].w/2+40))return false;
-  return terrainSpread(x,46)<5.8&&Math.abs(ground(x+22)-ground(x-22))/44<.16;
+  if(!Number.isFinite(x))return false;
+  if(this.modules.some(m=>m.id!=='pad'&&Math.abs(x-m.x)<TYPE[m.id].w/2+48))return false;
+  const pad=this.module('pad');if(allowPad&&pad&&Math.abs(x-pad.x)<=42)return true;
+  if(ROCKS.some(r=>Math.abs(x-r.x)<r.r+34))return false;
+  return terrainSpread(x,62)<5.8&&Math.abs(ground(x+31)-ground(x-31))/62<.14;
  }
- landingNear(x,avoid=null){const reserved=avoid||(this.job&&!this.job.complete?this.job:null);let best=null;for(let p=50;p<WORLD-50;p+=3){if(!this.safeLanding(p))continue;if(reserved&&Math.abs(p-reserved.x)<TYPE[reserved.id].w/2+48)continue;let d=Math.abs(p-x);const pad=this.module('pad');if(pad&&Math.abs(p-pad.x)<40)d-=50;if(!best||d<best.d)best={x:p,d};}return best?.x||x-150;}
- plan(id,x,flip=0,relocate=false){const a=this.assess(id,x,flip);if(!a.valid)return false;if(this.module(id)&&!relocate)return false;const origin=this.module(id);this.job={id,x,flip,relocate,origin:origin?{...origin}:null,stage:relocate?'retrieve':'build',complete:false};this.landingTarget=this.landingNear(relocate?origin.x:x);return true;}
- launch(side=-1){if(!this.job)return false;const t=TYPE[this.job.id],lz=this.landingNear(this.job.relocate?this.job.origin.x:this.job.x);this.landingTarget=lz;this.ship={x:clamp(lz+side*220,60,WORLD-60),y:ground(lz)-440,vx:-side*25,vy:7,angle:0,omega:0,fuel:this.logisticsActive()?90:78,thrust:false,cargo:!this.job.relocate};this.astro=null;this.state='flying';this.flightClock=0;this.resetWork();this.lastWarning=0;this.event(`${t.name} inbound. Natural terrain: stay under 1.7 m/s down and 1.0 m/s sideways.`);return true;}
+ landingNear(x,avoid=null,originX=null){
+  const reserved=avoid||(this.job&&!this.job.complete?this.job:null),destination=reserved?.x??x;
+  const maxWalk=650,oxygen=this.logisticsActive()?110:95,candidates=[];let run=[];
+  const finish=()=>{if(run.length>=9){const center=run[Math.floor(run.length/2)],walk=Math.abs(center-x),pad=this.module('pad');candidates.push({x:center,score:walk-(pad&&Math.abs(center-pad.x)<=30?60:0)});}run=[];};
+  for(let p=Math.max(50,Math.ceil((x-maxWalk)/3)*3);p<=Math.min(WORLD-50,x+maxWalk);p+=3){
+   const blocked=reserved&&Math.abs(p-destination)<TYPE[reserved.id].w/2+75;
+   const seconds=originX===null?Math.abs(p-destination)/34+Math.abs(p-destination)/54+6:Math.abs(p-originX)/54+Math.abs(originX-destination)/34+Math.abs(destination-p)/54+8;
+   if(blocked||Math.abs(p-destination)>maxWalk||seconds>oxygen-20||!this.safeLanding(p)){finish();continue;}run.push(p);
+  }
+  finish();candidates.sort((a,b)=>a.score-b.score);return candidates[0]?.x??null;
+ }
+ deliveryLanding(id,x,relocate=false){const origin=relocate?this.module(id):null;return this.landingNear(origin?.x??x,{id,x},origin?.x??null);}
+ plan(id,x,flip=0,relocate=false){const a=this.assess(id,x,flip);if(!a.valid)return false;if(this.module(id)&&!relocate)return false;const lz=this.deliveryLanding(id,x,relocate);if(lz===null){this.event('No clear landing zone within safe walking range. Move the construction outline.','danger');return false;}const origin=this.module(id);this.job={id,x,flip,relocate,origin:origin?{...origin}:null,stage:relocate?'retrieve':'build',complete:false};this.landingTarget=lz;return true;}
+ launch(side=-1){if(!this.job)return false;const j=this.job,t=TYPE[j.id],lz=this.landingNear(j.relocate?j.origin.x:j.x,j,j.relocate?j.origin.x:null);if(lz===null){this.event('Landing access is blocked. Adjust the build site before launching.','danger');return false;}this.landingTarget=lz;this.ship={x:clamp(lz+side*220,60,WORLD-60),y:ground(lz)-440,vx:-side*25,vy:7,angle:0,omega:0,fuel:this.logisticsActive()?90:78,thrust:false,cargo:!j.relocate};this.astro=null;this.state='flying';this.flightClock=0;this.resetWork();this.lastWarning=0;this.event(`${t.name} inbound. Land at the green cargo LZ, clear of the build outline.`);return true;}
+ takeOff(){if(this.state!=='landed'||this.ship.fuel<=0)return false;if(this.job?.complete)return this.beginAscent();this.state='flying';this.astro=null;this.resetWork();this.ship.y-=3;this.ship.vy=-12;this.ship.vx=0;this.ship.omega=0;this.ship.angle=0;this.ship.thrust=true;this.event('Repositioning. Land at the green cargo LZ, then unload and build.');return true;}
  fail(title,text){if(this.job?.relocate&&!this.job.complete&&this.job.origin){const old=this.modules.findIndex(m=>m.id===this.job.id);if(old<0)this.modules.push({...this.job.origin});else this.modules[old]={...this.job.origin};}this.state='failed';this.failure={title,text};this.campaign.crashes++;this.ship&&(this.ship.thrust=false);this.checkpoint();this.event(title,'danger');}
  retry(){if(this.job?.complete){this.state='orbit';this.job=null;this.astro=null;this.event('Rescue complete. Installed modules remain in place.');}else if(this.job){if(this.job.relocate&&this.job.origin){this.campaign.modules=this.modules.filter(m=>m.id!==this.job.id);this.modules.push({...this.job.origin});}this.job.stage=this.job.relocate?'retrieve':'build';this.launch();}}
  interact(){
   if(this.state==='landed'){this.astro={x:this.ship.x+30,y:this.surface(this.ship.x+30),oxygen:this.logisticsActive()?110:95,carrying:false,dir:1,walk:0};this.state='eva';this.event(this.job?.complete?'Return to the lander when ready to depart.':this.job?.relocate?'Retrieve the old module: hold E beside it to dismantle.':'Press E again beside the lander to collect your cargo.');return;}
   if(this.state!=='eva')return;const a=this.astro,nearShip=Math.abs(a.x-this.ship.x)<47;
-  if(nearShip){if(this.ship.cargo&&!a.carrying&&!this.job.complete){a.carrying=true;this.ship.cargo=false;this.event('Cargo collected. Carry it to the outline. Press E or click the timing meter to assemble.');return;}if(a.carrying){a.carrying=false;this.ship.cargo=true;}this.state='landed';a.oxygen=this.logisticsActive()?110:95;this.event(this.job?.complete?'Cargo installed. Hold thrust to lift off for orbital resupply.':'Back inside. Press E to exit; your oxygen is replenished.');return;}
+  if(nearShip){if(this.ship.cargo&&!a.carrying&&!this.job.complete){a.carrying=true;this.ship.cargo=false;this.event('Cargo collected. Carry it to the outline. Press E or click the timing meter to assemble.');return;}if(a.carrying){a.carrying=false;this.ship.cargo=true;}this.state='landed';this.resetWork();a.oxygen=this.logisticsActive()?110:95;this.event(this.job?.complete?'Cargo installed. Hold thrust to lift off for orbital resupply.':'Back inside. Press E to exit; your oxygen is replenished.');return;}
   const hub=this.module('hub');if(hub&&Math.abs(a.x-hub.x)<52&&this.stats().power>=this.stats().demand){a.oxygen=this.logisticsActive()?110:95;this.event('Airlock connected. Suit oxygen replenished.');}
  }
  build(dt,input){
   const a=this.astro,j=this.job;if(!j)return;let mode=null,target=j.x;
   if(j.relocate&&j.stage==='retrieve'){target=j.origin.x;if(Math.abs(a.x-target)<TYPE[j.id].w/2+32&&!a.carrying)mode='dismantle';}
-  else if(!j.complete&&a.carrying&&Math.abs(a.x-j.x)<35){if(Math.abs(this.ship.x-j.x)>TYPE[j.id].w/2+35)mode='build';else if(input.action&&this.clock-this.lastWarning>4){this.event('Construction overlaps the lander. Use B to move the outline clear.','danger');this.lastWarning=this.clock;}}
+  else if(!j.complete&&a.carrying&&Math.abs(a.x-j.x)<35){if(Math.abs(this.ship.x-j.x)>TYPE[j.id].w/2+35)mode='build';else if(input.action&&this.clock-this.lastWarning>4){this.event('Lander blocks construction. Re-enter with E, then use thrust to move to the green cargo LZ.','danger');this.lastWarning=this.clock;}}
   if(!mode&&!a.carrying){const damaged=this.modules.filter(m=>m.hp<99.9&&Math.abs(a.x-m.x)<TYPE[m.id].w/2+30).sort((u,v)=>Math.abs(u.x-a.x)-Math.abs(v.x-a.x))[0];if(damaged&&Math.abs(a.x-this.ship.x)>47){mode='repair';target=damaged.x;}}
   if(!mode){this.resetWork();return;}
   const workKey=mode+':'+target;
@@ -131,11 +146,11 @@ class Simulation{
    s.vy+=G*dt;s.x+=s.vx*dt;s.y+=s.vy*dt;if(s.y<-160){s.y=-160;s.vy=Math.max(0,s.vy);}
    const collision=this.modules.find(m=>m.id!=='pad'&&Math.abs(m.x-s.x)<TYPE[m.id].w/2+19&&s.y+20>this.moduleY(m)-TYPE[m.id].h&&s.y-15<this.moduleY(m));
    if(collision){collision.hp=Math.max(15,collision.hp-18);this.fail('Structure collision.','Leave more clearance between your approach and the outpost. Damaged modules can be repaired on foot.');return;}
-   const floor=Math.min(this.surface(s.x-22),this.surface(s.x+22));if(s.y+25>=floor){const pad=this.module('pad'),onPad=pad&&Math.abs(s.x-pad.x)<50,rough=terrainSpread(s.x,44),safe=onPad||this.safeLanding(s.x,false);const maxV=onPad?25:17,maxH=onPad?16:10,maxA=(onPad?12:9)*Math.PI/180;
+   const floor=Math.min(this.surface(s.x-22),this.surface(s.x+22));if(s.y+25>=floor){const pad=this.module('pad'),onPad=pad&&Math.abs(s.x-pad.x)<=42,safe=this.safeLanding(s.x);const maxV=onPad?25:17,maxH=onPad?16:10,maxA=(onPad?12:9)*Math.PI/180;
     if(safe&&s.vy<maxV&&Math.abs(s.vx)<maxH&&Math.abs(s.angle)<maxA){const score=clamp(100-Math.abs(s.vy)/maxV*28-Math.abs(s.vx)/maxH*22-Math.abs(s.angle)/maxA*20-Math.min(18,Math.abs(s.x-this.landingTarget)/15),0,100);this.campaign.landings.push({score,vertical:s.vy/10,horizontal:Math.abs(s.vx)/10,fuel:s.fuel});s.y=floor-25;s.vx=s.vy=s.omega=0;s.angle=0;s.thrust=false;this.state='landed';this.checkpoint();this.event(`Touchdown. Flight rating ${Math.round(score)}/100. Press E to exit.`,'success');}
-    else this.fail(!safe?'Unsuitable landing ground.':'Touchdown limits exceeded.',!safe?'That ground is sloped, rocky, or obstructed. Use the terrain scanner and aim for the narrow recommended landing pocket.':`Natural terrain needs less than 1.7 m/s down, 1.0 m/s sideways, and 9° tilt. Your landing: ${(s.vy/10).toFixed(1)} down, ${(Math.abs(s.vx)/10).toFixed(1)} sideways, ${Math.round(Math.abs(s.angle)*180/Math.PI)}° tilt.`);
+    else this.fail(!safe?'Unsuitable landing ground.':'Touchdown limits exceeded.',!safe?'That ground is sloped, rocky, or obstructed. Use the terrain scanner and aim for the marked green cargo landing zone.':`Natural terrain needs less than 1.7 m/s down, 1.0 m/s sideways, and 9° tilt. Your landing: ${(s.vy/10).toFixed(1)} down, ${(Math.abs(s.vx)/10).toFixed(1)} sideways, ${Math.round(Math.abs(s.angle)*180/Math.PI)}° tilt.`);
    }
-  }else if(this.state==='landed'){this.ship.thrust=false;if(input.thrust&&this.job?.complete)this.beginAscent();}
+  }else if(this.state==='landed'){this.ship.thrust=false;if(input.thrust)this.takeOff();}
   else if(this.state==='eva'){
    const a=this.astro,move=(input.right?1:0)-(input.left?1:0),speed=a.carrying?34:54;a.x+=move*speed*dt;a.y=this.surface(a.x);if(move){a.dir=move;a.walk+=dt*10;}a.oxygen-=dt;this.build(dt,input);if(a.oxygen<=0){this.fail('Suit oxygen exhausted.','Land closer to the construction site, use a powered hub to refill, or return to the lander for a fresh supply.');return;}if(a.oxygen<25&&a.oxygen+dt>=25)this.event('25 seconds of suit oxygen. Return to an airlock or lander.','danger');
   }else if(this.state==='ascent'){
