@@ -1,26 +1,17 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#080e18"><meta name="description" content="Land cargo. Walk the crater. Build humanity's next foothold. A lunar lander and base building game.">
-<meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<title>Moon Base | South Pole Operations</title>
-<link rel="manifest" href="manifest.webmanifest"><link rel="icon" href="icons/icon-192.png"><link rel="apple-touch-icon" href="icons/icon-192.png"><link rel="stylesheet" href="style.css">
-</head>
-<body>
-<main id="app">
- <canvas id="world" aria-label="Moon Base game world"></canvas>
- <header><a class="brand" href="#" id="home"><span class="brand-mark">◒</span> MOON BASE<span class="edition">SOUTH POLE OPERATIONS</span></a><div class="header-actions"><button id="install" hidden>Install</button><button id="sound" title="Toggle audio" aria-label="Enable sound">Sound off</button><button id="help" title="Controls and mission guide">?</button><button id="pause" title="Pause game" aria-label="Pause game">Ⅱ</button></div></header>
- <section id="hud" hidden>
-  <div class="mission panel"><div class="eyebrow"><span class="status-dot"></span><span id="phase">DESCENT / 01</span></div><h2 id="missionTitle">Rim power array</h2><p id="objective">Land near the highlighted construction site.</p><div class="mission-progress" id="missionProgress"></div></div>
-  <div class="telemetry panel"><div><span id="resourceLabel">PROPELLANT</span><strong id="fuelText">100<span>%</span></strong><div class="meter"><i id="fuelBar"></i></div></div><div><span id="verticalLabel">VERTICAL</span><strong id="verticalText">0.0 <small>m/s</small></strong><span id="verticalNote" class="subreading">SAFE BELOW 2.7</span></div><div><span id="altitudeLabel">ALTITUDE</span><strong id="altitudeText">320 <small>m</small></strong><span id="altitudeNote" class="subreading">ABOVE TERRAIN</span></div></div>
-  <div id="buildWrap" class="panel" hidden><span id="buildLabel">ASSEMBLING MODULE</span><div class="meter"><i id="buildBar"></i></div></div>
-  <div id="toast" role="status"></div>
-  <div class="bottom-panel"><div class="location"><span class="status-dot"></span> AURORA CRATER <b>89.4° S</b></div><div id="hint">↑ Thrust &nbsp; ← → Rotate &nbsp; E Interact &nbsp; M Map</div><button id="mapButton">Sector map <span>M</span></button></div>
-  <div id="touch"><div class="touch-steer"><button data-key="ArrowLeft" aria-label="Rotate or walk left">◀</button><button data-key="ArrowRight" aria-label="Rotate or walk right">▶</button></div><div class="touch-action"><button id="touchInteract" data-key="KeyE">EVA</button><button class="thrust" data-key="ArrowUp" aria-label="Thrust">▲<span>THRUST</span></button></div></div>
- </section>
- <div id="overlay" class="overlay"><section id="dialog" class="dialog"></section></div>
- <div id="map" class="map-overlay" hidden><div class="map-heading"><div><span class="eyebrow">SOUTH POLE / SECTOR 04</span><h2>One crater. A new beginning.</h2></div><button id="closeMap">Close map ×</button></div><canvas id="mapCanvas"></canvas><div id="mapLegend"></div><p>Power on the rim. Shelter in the crater. Six deliveries connect your outpost.</p></div>
-</main>
-<script src="game.js"></script>
-</body></html>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#080e18"><meta name="description" content="Build a connected lunar outpost. Master the lander, choose your layout, and bring your first crew home."><meta name="apple-mobile-web-app-capable" content="yes"><title>Moon Base | The Aurora Expedition</title><link rel="manifest" href="manifest.webmanifest"><link rel="icon" href="icons/icon-192.png"><link rel="apple-touch-icon" href="icons/icon-192.png"><link rel="stylesheet" href="style.css"></head><body>
+<main id="app"><canvas id="world" aria-label="Lunar terrain, lander and connected Aurora Base"></canvas>
+<header><a id="home" href="#" class="brand"><span>◒</span>MOON BASE<small>THE AURORA EXPEDITION</small></a><nav><button id="install" hidden>Install</button><button id="sound" aria-label="Toggle sound">Sound off</button><button id="help" aria-label="Flight manual">?</button><button id="pause" aria-label="Pause expedition">Ⅱ</button></nav></header>
+<section id="hud" hidden><div class="objective panel"><div class="eyebrow" id="phase">SURFACE OPERATIONS</div><h2 id="jobTitle"></h2><p id="objective"></p><div id="moduleDots"></div></div>
+<button id="baseStatus" class="base-status panel"><div><span class="eyebrow">BASE RATING</span><strong id="baseScore">0<small>/100</small></strong></div><div class="status-values"><span id="powerStat"></span><span id="waterStat"></span><span id="networkStat"></span></div></button>
+<div id="instruments" class="panel"><div><label id="resourceName">FUEL</label><strong id="resourceValue"></strong><div class="meter"><i id="resourceMeter"></i></div></div><div><label id="speedName">VERTICAL</label><strong id="speedValue"></strong><small id="speedHint"></small></div><div><label id="distanceName">ALTITUDE</label><strong id="distanceValue"></strong><small id="distanceHint"></small></div></div>
+<div id="work" class="panel" hidden><span id="workText"></span><div class="meter"><i id="workMeter"></i></div></div>
+<div id="notice" role="status"></div><div id="context"></div>
+<footer><span>AURORA CRATER <b>89.4° S</b></span><span id="keysHint"></span><div><button id="planButton">Build plan <kbd>B</kbd></button><button id="mapButton">Sector <kbd>M</kbd></button></div></footer>
+<div id="touch"><div><button data-key="ArrowLeft" aria-label="Tilt or walk left">◀</button><button data-key="ArrowRight" aria-label="Tilt or walk right">▶</button></div><div><button data-key="ArrowDown" id="levelButton">LEVEL</button><button data-key="KeyE" id="actionButton">EVA</button><button data-key="ArrowUp" id="thrustButton">▲<small>THRUST</small></button></div></div>
+</section>
+<section id="planner" hidden><div class="planner-top"><div><span class="eyebrow" id="plannerMode">ORBITAL TENDER / CARGO & LAYOUT</span><h1 id="plannerTitle">Design a foothold.</h1></div><button id="closePlanner">Return to surface ×</button></div>
+<div class="planner-layout"><div class="sector"><div class="scan-tabs" role="group" aria-label="Survey layer"><button data-layer="sun" class="selected">Sunlight</button><button data-layer="ice">Ice deposits</button><button data-layer="shelter">Shelter</button><button data-layer="landing">Landing ground</button></div><canvas id="survey" aria-label="Click lunar terrain to position the selected module"></canvas><div class="survey-caption"><span id="scanLegend">AMBER · STRONG SUNLIGHT</span><span>Tap terrain to position · slider for fine adjustment</span></div><div id="cargoList"></div></div>
+<aside class="planner-card"><div class="eyebrow" id="selectedTag"></div><h2 id="selectedName"></h2><p id="selectedTip"></p><div class="placement-score"><span>PLACEMENT QUALITY</span><strong id="qualityValue"></strong></div><div id="placementFacts"></div><label class="slider-label" for="position">Position <b id="positionValue"></b></label><input id="position" type="range" min="80" max="3520" step="2"><div class="adjust"><button id="nudgeLeft" aria-label="Move site left">−</button><button id="rotate">Rotate / face left</button><button id="nudgeRight" aria-label="Move site right">+</button></div><p id="placementMessage"></p><div id="approach"><span>APPROACH</span><button id="approachLeft" class="selected">From left</button><button id="approachRight">From right</button></div><button id="launch" class="primary">Load cargo & descend ↘</button><button id="autoSite" class="text-button">Suggest a strong site</button><button id="runTest" hidden>Begin crew readiness test</button></aside></div><div class="planner-summary"><span id="plannerSummary"></span><button id="reportButton">Systems & scoring ↗</button></div></section>
+<section id="testPanel" class="panel" hidden><span class="eyebrow" id="testPhase">CREW READINESS / LIVE TEST</span><h2 id="testTitle">Proving the outpost.</h2><div class="meter"><i id="testMeter"></i></div><div id="testChecks"></div><p id="testNote"></p></section>
+<div id="overlay" hidden><section id="dialog"></section></div>
+</main><script src="sim.js"></script><script src="game.js"></script></body></html>
